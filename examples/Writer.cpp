@@ -15,6 +15,7 @@
 int main() {
 	try {
 		while (true) {
+			std::cout << "Enter message to send: ";
 			std::string message;
 			std::getline(std::cin, message);
 
