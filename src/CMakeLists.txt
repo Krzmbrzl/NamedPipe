@@ -25,4 +25,4 @@ else()
 	message(FATAL_ERROR "Unsupported platform")
 endif()
 
-add_library(NamedPipe::pipe ALIAS named_pipe)
+add_library(NamedPipe::NamedPipe ALIAS named_pipe)

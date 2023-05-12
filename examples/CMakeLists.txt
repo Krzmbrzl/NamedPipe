@@ -6,5 +6,5 @@
 add_executable(reader Reader.cpp)
 add_executable(writer Writer.cpp)
 
-target_link_libraries(reader PRIVATE NamedPipe::pipe)
-target_link_libraries(writer PRIVATE NamedPipe::pipe)
+target_link_libraries(reader PRIVATE NamedPipe::NamedPipe)
+target_link_libraries(writer PRIVATE NamedPipe::NamedPipe)
