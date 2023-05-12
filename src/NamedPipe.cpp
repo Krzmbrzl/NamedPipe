@@ -224,7 +224,8 @@ void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milli
 
 	DWORD transferedBytes;
 	BOOL result;
-	while (!(result = GetOverlappedResult(handle, overlappedPtr, &transferedBytes, FALSE))
+	// Explicit comparison to FALSE in order to avoid warning C4706
+	while ((result = GetOverlappedResult(handle, overlappedPtr, &transferedBytes, FALSE)) == FALSE
 		   && GetLastError() == ERROR_IO_INCOMPLETE) {
 		if (timeout > pendingWaitInterval) {
 			timeout -= pendingWaitInterval;
