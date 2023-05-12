@@ -157,8 +157,10 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 		throw PipeException< int >(errno, "Open");
 	}
 
-	pollfd pollData = { handle, POLLIN, 0 };
-	while (::poll(&pollData, 1, PIPE_WAIT_INTERVAL.count()) != -1 && !(pollData.revents & POLLIN)) {
+	pollfd pollData = { handle, POLLIN, -1 };
+	while (::poll(&pollData, 1, std::chrono::duration_cast< std::chrono::milliseconds >(PIPE_WAIT_INTERVAL).count())
+			   != -1
+		   && !(pollData.revents & POLLIN)) {
 		// Check if the thread has been interrupted
 		if (m_break) {
 			throw InterruptException();
