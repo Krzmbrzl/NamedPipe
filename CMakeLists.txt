@@ -10,9 +10,28 @@ project(NamedPipe
 	LANGUAGES CXX
 )
 
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
+include(setup_dependencies)
+
+if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+	set(WANTED_WARNINGS "ENABLE_MOST_WARNINGS")
+else()
+	set(WANTED_WARNINGS "DISABLE_ALL_WARNINGS")
+endif()
+
+include(CompilerFlags)
+
+get_compiler_flags(
+	${WANTED_WARNINGS}
+	OUTPUT_VARIABLE COMPILER_FLAGS
+)
+
+add_compile_options(${COMPILER_FLAGS})
 
 add_subdirectory(src)
 add_subdirectory(examples)

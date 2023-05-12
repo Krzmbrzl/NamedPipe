@@ -177,7 +177,7 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 
 	ssize_t readBytes;
 	while ((readBytes = ::read(handle, &buffer, PIPE_BUFFER_SIZE)) > 0) {
-		content.append(buffer, readBytes);
+		content.append(buffer, static_cast< std::size_t >(readBytes));
 	}
 
 	// 0 Means there is no more input, negative numbers indicate errors
