@@ -320,7 +320,7 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 	// Actually write to the pipe
 	OVERLAPPED overlapped;
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
-	if (!WriteFile(handle, message, static_cast< DWORD >(message), NULL, &overlapped)) {
+	if (!WriteFile(handle, message, static_cast< DWORD >(messageSize), NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
 			if (waitUntilWritten) {
 				waitOnAsyncIO(handle, &overlapped, timeout);
@@ -433,7 +433,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 		}
 
 		if (success) {
-			message.append(message.end(), buffer.begin(), buffer.begin() + readBytes + 1);
+			message.insert(message.end(), buffer.begin(), buffer.begin() + readBytes + 1);
 
 			if (readBytes < PIPE_BUFFER_SIZE) {
 				// It seems like we read the complete message
