@@ -106,6 +106,10 @@ NamedPipe::operator bool() const noexcept {
 	return !m_pipePath.empty();
 }
 
+void NamedPipe::interrupt() {
+	m_break.store(true);
+}
+
 
 #ifdef PIPE_PLATFORM_UNIX
 using handle_t = FileHandleWrapper< int, int (*)(int), -1, 0 >;
@@ -122,6 +126,7 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
 					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
 	assert(message);
+
 	// Wait until the target pipe is found or until the provided timeout has elapsed
 	handle_t handle;
 	do {
@@ -206,6 +211,8 @@ NamedPipe &NamedPipe::operator=(NamedPipe &&other) {
 }
 
 void NamedPipe::destroy() {
+	m_break.store(true);
+
 	if (!m_pipePath.empty()) {
 		std::error_code errorCode;
 		std::filesystem::remove(m_pipePath, errorCode);
@@ -274,6 +281,7 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
 					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
 	assert(message);
+
 	if (pipePath.parent_path().empty()) {
 		pipePath = std::filesystem::path("\\\\.\\pipe") / pipePath;
 	}
@@ -493,6 +501,8 @@ NamedPipe &NamedPipe::operator=(NamedPipe &&other) {
 }
 
 void NamedPipe::destroy() {
+	m_break.store(true);
+
 	if (!m_pipePath.empty()) {
 		if (!CloseHandle(m_handle)) {
 			std::cerr << "Failed at closing pipe handle: " << GetLastError() << std::endl;

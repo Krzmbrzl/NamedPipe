@@ -105,6 +105,12 @@ public:
 	void destroy();
 
 	/**
+	 * Interrupt any ongoing read or write process.
+	 * Note: Once interrupted, the pipe has to be reconstructed before using it again
+	 */
+	void interrupt();
+
+	/**
 	 * @returns Whether this wrapper is currently in a valid state
 	 */
 	operator bool() const noexcept;
@@ -114,7 +120,7 @@ private:
 	 * The path to the wrapped pipe
 	 */
 	std::filesystem::path m_pipePath;
-	std::atomic_bool m_break = false;
+	mutable std::atomic_bool m_break = false;
 
 #ifdef PIPE_PLATFORM_WINDOWS
 	/**
