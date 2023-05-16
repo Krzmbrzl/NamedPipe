@@ -19,6 +19,7 @@
 #	include <windows.h>
 #endif
 
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <fstream>
@@ -96,8 +97,9 @@ std::filesystem::path NamedPipe::getPath() const noexcept {
 	return m_pipePath;
 }
 
-void NamedPipe::write(const std::string &content, std::chrono::milliseconds timeout) const {
-	write(m_pipePath, content, timeout);
+void NamedPipe::write(const std::byte *message, std::size_t messageSize, std::chrono::milliseconds timeout) const {
+	assert(message);
+	write(m_pipePath, message, messageSize, timeout);
 }
 
 NamedPipe::operator bool() const noexcept {
@@ -117,8 +119,9 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 	return NamedPipe(pipePath);
 }
 
-void NamedPipe::write(std::filesystem::path pipePath, const std::string &content, std::chrono::milliseconds timeout,
-					  bool waitUntilWritten) {
+void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
+					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
+	assert(message);
 	// Wait until the target pipe is found or until the provided timeout has elapsed
 	handle_t handle;
 	do {
@@ -135,7 +138,7 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::string &content
 	} while (!handle);
 
 	// Once the pipe exists, write the desired content to it
-	if (::write(handle, content.c_str(), content.size()) < 0) {
+	if (::write(handle, message, messageSize) < 0) {
 		throw PipeException< int >(errno, "Write");
 	}
 
@@ -147,8 +150,8 @@ bool NamedPipe::exists(const std::filesystem::path &pipePath) {
 	return std::filesystem::exists(pipePath);
 }
 
-std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
-	std::string content;
+std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
+	std::vector< std::byte > message;
 
 	// At this point, we are assuming that the pipe already exists
 	handle_t handle(::open(m_pipePath.c_str(), O_RDONLY | O_NONBLOCK), &::close);
@@ -173,11 +176,11 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 		}
 	}
 
-	char buffer[PIPE_BUFFER_SIZE];
+	std::array< std::byte, PIPE_BUFFER_SIZE > buffer;
 
 	ssize_t readBytes;
-	while ((readBytes = ::read(handle, &buffer, PIPE_BUFFER_SIZE)) > 0) {
-		content.append(buffer, static_cast< std::size_t >(readBytes));
+	while ((readBytes = ::read(handle, buffer.data(), PIPE_BUFFER_SIZE)) > 0) {
+		message.insert(message.end(), buffer.begin(), buffer.begin() + readBytes);
 	}
 
 	// 0 Means there is no more input, negative numbers indicate errors
@@ -187,7 +190,7 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 		throw PipeException< int >(errno, "Read");
 	}
 
-	return content;
+	return message;
 }
 
 NamedPipe::NamedPipe(NamedPipe &&other) : m_pipePath(std::move(other.m_pipePath)) {
@@ -268,8 +271,9 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 	return pipe;
 }
 
-void NamedPipe::write(std::filesystem::path pipePath, const std::string &content, std::chrono::milliseconds timeout,
-					  bool waitUntilWritten) {
+void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
+					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
+	assert(message);
 	if (pipePath.parent_path().empty()) {
 		pipePath = std::filesystem::path("\\\\.\\pipe") / pipePath;
 	}
@@ -316,7 +320,7 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::string &content
 	// Actually write to the pipe
 	OVERLAPPED overlapped;
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
-	if (!WriteFile(handle, content.c_str(), static_cast< DWORD >(content.size()), NULL, &overlapped)) {
+	if (!WriteFile(handle, message, static_cast< DWORD >(message), NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
 			if (waitUntilWritten) {
 				waitOnAsyncIO(handle, &overlapped, timeout);
@@ -391,8 +395,8 @@ void disconnectAndReconnect(HANDLE pipeHandle, LPOVERLAPPED overlappedPtr, bool 
 	}
 }
 
-std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
-	std::string content;
+std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
+	std::vector< std::byte > message;
 
 	OVERLAPPED overlapped;
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
@@ -407,12 +411,12 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
 	overlapped.hEvent = eventHandle;
 
-	char buffer[PIPE_BUFFER_SIZE];
+	std::array< std::byte, PIPE_BUFFER_SIZE > buffer;
 
 	// Loop until we explicitly break from it (because we're done reading)
 	while (true) {
 		DWORD readBytes = 0;
-		BOOL success    = ReadFile(m_handle, &buffer, PIPE_BUFFER_SIZE, &readBytes, &overlapped);
+		BOOL success    = ReadFile(m_handle, buffer.data(), PIPE_BUFFER_SIZE, &readBytes, &overlapped);
 		if (!success && GetLastError() == ERROR_IO_PENDING) {
 			// Wait for the async IO to complete (note that the thread can't be
 			// interrupted while waiting this way)
@@ -423,13 +427,13 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 			}
 		}
 
-		if (!success && content.size() > 0) {
+		if (!success && message.size() > 0) {
 			// We have already read some data -> assume that we reached the end of it
 			break;
 		}
 
 		if (success) {
-			content.append(buffer, readBytes);
+			message.append(message.end(), buffer.begin(), buffer.begin() + readBytes + 1);
 
 			if (readBytes < PIPE_BUFFER_SIZE) {
 				// It seems like we read the complete message
@@ -468,7 +472,7 @@ std::string NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 
 	DisconnectNamedPipe(m_handle);
 
-	return content;
+	return message;
 }
 
 NamedPipe::NamedPipe(NamedPipe &&other) : m_pipePath(std::move(other.m_pipePath)), m_handle(other.m_handle) {

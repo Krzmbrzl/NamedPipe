@@ -11,7 +11,9 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <iostream>
+#include <vector>
 
 std::atomic_bool interrupt = false;
 
@@ -31,9 +33,9 @@ int main() {
 			}
 
 			try {
-				std::string message = pipe.read_blocking(std::chrono::seconds(1));
+				std::vector< std::byte > message = pipe.read_blocking(std::chrono::seconds(1));
 
-				std::cout << "Received: '" << message << "'" << std::endl;
+				std::cout << "Received: '" << reinterpret_cast< const char * >(message.data()) << "'" << std::endl;
 			} catch (const npipe::TimeoutException &) {
 				std::cout << "Didn't receive any data within the last second" << std::endl;
 			}

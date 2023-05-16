@@ -9,6 +9,7 @@
 #include <npipe/TimeoutException.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <string>
 
@@ -22,7 +23,8 @@ int main() {
 			std::cout << "Writing message '" << message << "'" << std::endl;
 
 			try {
-				npipe::NamedPipe::write("testPipe", message, std::chrono::seconds(1));
+				npipe::NamedPipe::write("testPipe", reinterpret_cast< const std::byte * >(message.data()),
+										message.size(), std::chrono::seconds(1));
 			} catch (const npipe::TimeoutException &) {
 				std::cout << "Couldn't deliver message within one second -> dismissing" << std::endl;
 			}

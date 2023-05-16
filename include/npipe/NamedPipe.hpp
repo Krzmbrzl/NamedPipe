@@ -7,9 +7,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <limits>
-#include <string>
+#include <vector>
 
 #ifdef PIPE_PLATFORM_WINDOWS
 #	include <windows.h>
@@ -39,12 +40,13 @@ public:
 	 *
 	 * @param pipePath The path at which the pipe is expected to exist. If the pipe does not exist, the function
 	 * will poll for its existence until it times out.
-	 * @param content The messages that should be written to the named pipe
+	 * @param message A pointer to the beginning of the message that shall be sent
+	 * @param messageSize The size of the message to write
 	 * @param timeout How long this function is allowed to take. Note that the timeout is only
 	 * respected very roughly (especially on Windows) and should therefore rather be used to specify the general
 	 * order of magnitude of the timeout instead of the exact timeout-interval.
 	 */
-	static void write(std::filesystem::path pipePath, const std::string &content,
+	static void write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
 					  std::chrono::milliseconds timeout = std::chrono::milliseconds(10), bool waitUntilWritten = false);
 
 	/**
@@ -68,12 +70,14 @@ public:
 
 	/**
 	 * Writes to the named pipe wrapped by this object
-	 * @content The message that should be written to the named pipe
-	 * @content How long this function is allowed to take. The remarks from NamedPipe::write apply.
+	 * @param message A pointer to the beginning of the message to send
+	 * @param messageSize The size of the message that shall be sent
+	 * @param timeout How long this function is allowed to take. The remarks from NamedPipe::write apply.
 	 *
 	 * @see Mumble::JsonBridge::NamedPipe::write()
 	 */
-	void write(const std::string &content, std::chrono::milliseconds timeout = std::chrono::milliseconds(10)) const;
+	void write(const std::byte *message, std::size_t messageSize,
+			   std::chrono::milliseconds timeout = std::chrono::milliseconds(10)) const;
 
 	/**
 	 * Reads content from the wrapped named pipe. This function will block until there is content available or the
@@ -83,8 +87,8 @@ public:
 	 * Rather this specifies the general order of magnitude of the timeout.
 	 * @returns The read content
 	 */
-	[[nodiscard]] std::string read_blocking(std::chrono::milliseconds timeout = std::chrono::milliseconds{
-												(std::numeric_limits< unsigned int >::max)() }) const;
+	[[nodiscard]] std::vector< std::byte > read_blocking(std::chrono::milliseconds timeout = std::chrono::milliseconds{
+															 (std::numeric_limits< unsigned int >::max)() }) const;
 
 	/**
 	 * @returns The path of the wrapped named pipe
