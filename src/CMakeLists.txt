@@ -15,7 +15,7 @@ else()
 	set(SYSTEM_PROP "SYSTEM")
 endif()
 
-target_include_directories(named_pipe ${SYSTEM_PROP} PUBLIC "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(named_pipe ${SYSTEM_PROP} PUBLIC "${PROJECT_SOURCE_DIR}/include")
 
 if (UNIX)
 	target_compile_definitions(named_pipe PUBLIC PIPE_PLATFORM_UNIX)
