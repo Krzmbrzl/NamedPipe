@@ -34,4 +34,8 @@ get_compiler_flags(
 add_compile_options(${COMPILER_FLAGS})
 
 add_subdirectory(src)
-add_subdirectory(examples)
+
+if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+	# Only build examples when built as standalone
+	add_subdirectory(examples)
+endif()
