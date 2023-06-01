@@ -16,6 +16,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+option(NPIPE_BUILD_TESTS "Whether to build tests for the named pipe implementation" ON)
+
 include(setup_dependencies)
 
 if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -24,6 +26,7 @@ else()
 	set(WANTED_WARNINGS "DISABLE_ALL_WARNINGS")
 endif()
 
+include(CTest)
 include(CompilerFlags)
 
 get_compiler_flags(
@@ -34,6 +37,10 @@ get_compiler_flags(
 add_compile_options(${COMPILER_FLAGS})
 
 add_subdirectory(src)
+
+if (NPIPE_BUILD_TESTS)
+	add_subdirectory(tests)
+endif()
 
 if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 	# Only build examples when built as standalone
