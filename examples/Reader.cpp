@@ -35,7 +35,9 @@ int main() {
 			try {
 				std::vector< std::byte > message = pipe.read_blocking(std::chrono::seconds(1));
 
-				std::cout << "Received: '" << reinterpret_cast< const char * >(message.data()) << "'" << std::endl;
+				std::cout << "Received: '"
+						  << std::string(reinterpret_cast< const char * >(message.data()), message.size()) << "'"
+						  << std::endl;
 			} catch (const npipe::TimeoutException &) {
 				std::cout << "Didn't receive any data within the last second" << std::endl;
 			}
