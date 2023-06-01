@@ -40,4 +40,4 @@ public:
 	const char *what() const noexcept { return m_message.c_str(); }
 };
 
-} // namespace pipe
+} // namespace npipe
