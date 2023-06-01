@@ -342,12 +342,13 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 // Implementation from https://stackoverflow.com/a/66588424/3907364
 bool NamedPipe::exists(const std::filesystem::path &pipePath) {
 	std::string pipeName = pipePath.string();
-	if ((pipeName.size() < 10) || (pipeName.compare(0, 9, "\\\\.\\pipe\\") != 0)
-		|| (pipeName.find('\\', 9) != std::string::npos)) {
-		// This can't be a pipe, so it also can't exist
+	if (pipeName.size() >= 9 && pipeName.compare(0, 9, "\\\\.\\pipe\\") == 0) {
+		pipeName.erase(0, 9);
+	}
+
+	if (pipeName.empty()) {
 		return false;
 	}
-	pipeName.erase(0, 9);
 
 	WIN32_FIND_DATA fd;
 	DWORD dwErrCode;
@@ -368,7 +369,7 @@ bool NamedPipe::exists(const std::filesystem::path &pipePath) {
 	}
 
 	if ((dwErrCode != ERROR_FILE_NOT_FOUND) && (dwErrCode != ERROR_NO_MORE_FILES)) {
-		throw PipeException< DWORD >(dwErrCode, "CheckExistance");
+		throw PipeException< DWORD >(dwErrCode, "CheckExistence");
 	}
 
 	return false;
