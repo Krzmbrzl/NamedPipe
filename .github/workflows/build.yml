@@ -1,0 +1,37 @@
+name: Build and test
+
+on: [push, pull_request]
+
+jobs:
+    run:
+        strategy:
+            fail-fast: false
+            matrix:
+                build_type: [ Release, Debug ]
+                os: [ ubuntu-20.04, ubuntu-22.04, windows-2019, windows-2022, macos-11, macos-12 ]
+
+        runs-on: ${{ matrix.os }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 1
+
+            - name: Get CMake
+              uses: lukka/get-cmake@v3.20.1
+
+            - name: Setup MSVC
+              if: ${{ contains(matrix.os, 'windows') }}
+              uses: ilammy/msvc-dev-cmd@v1
+
+            - name: Build
+              uses: lukka/run-cmake@v3
+              with:
+                  cmakeListsOrSettingsJson: 'CMakeListsTxtAdvanced' # Required to respect cmakeAppendedArgs
+                  cmakeBuildType: ${{ matrix.build_type }}
+                  buildDirectory: 'build'
+                  cmakeAppendedArgs: -G Ninja -DNPIPE_WARNINGS_AS_ERRORS=ON -DNPIPE_BUILD_TESTS=ON -DCMAKE_UNITY_BUILD=ON
+
+            - name: Run tests
+              run: cd build && ctest --output-on-failure .

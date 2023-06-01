@@ -1,0 +1,26 @@
+name: General checks
+
+on: [push, pull_request]
+
+jobs:
+    run:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 1
+            
+            - name: Check line endings
+              uses: erclu/check-crlf@v1
+
+            - name: Generate compile-command DB
+              run: mkdir build && cd build && cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. && cd .. && ln -s build/compile_commands.json .
+              shell: bash
+
+            - name: Check code formatting
+              uses: jidicula/clang-format-action@v4.11.0
+              with:
+                  clang-format-version: '10'
+                  exclude-regex: '^(./build/*)'
