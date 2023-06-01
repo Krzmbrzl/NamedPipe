@@ -17,11 +17,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 option(NPIPE_BUILD_TESTS "Whether to build tests for the named pipe implementation" ON)
+option(NPIPE_WARNINGS_AS_ERRORS "Whether compiler warnings should be treated as errors" OFF)
 
 include(setup_dependencies)
 
 if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 	set(WANTED_WARNINGS "ENABLE_MOST_WARNINGS")
+
+	if (NPIPE_WARNINGS_AS_ERRORS)
+		list(APPEND WANTED_WARNINGS "ENABLE_WARNINGS_AS_ERRORS")
+	endif()
 else()
 	set(WANTED_WARNINGS "DISABLE_ALL_WARNINGS")
 endif()
