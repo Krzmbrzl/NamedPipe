@@ -441,7 +441,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 		}
 
 		if (success) {
-			message.insert(message.end(), buffer.begin(), buffer.begin() + readBytes + 1);
+			message.insert(message.end(), buffer.begin(), buffer.begin() + readBytes);
 
 			if (readBytes < PIPE_BUFFER_SIZE) {
 				// It seems like we read the complete message
