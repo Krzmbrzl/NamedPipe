@@ -20,14 +20,14 @@
 #include <thread>
 #include <tuple>
 
-constexpr const char *pipeName = "ioTestPipe";
+constexpr const char *ioPipeName = "ioTestPipe";
 
 class IOTest : public ::testing::TestWithParam< std::vector< std::byte > > {
 public:
 	using ParamPack = std::vector< std::byte >;
 
-	IOTest() : m_pipe(npipe::NamedPipe::create(pipeName)), m_readThread(std::thread(&IOTest::readLoop, this)) {
-		EXPECT_TRUE(npipe::NamedPipe::exists(pipeName));
+	IOTest() : m_pipe(npipe::NamedPipe::create(ioPipeName)), m_readThread(std::thread(&IOTest::readLoop, this)) {
+		EXPECT_TRUE(npipe::NamedPipe::exists(ioPipeName));
 	}
 
 	~IOTest() {
@@ -99,7 +99,7 @@ private:
 TEST_P(IOTest, io) {
 	const std::vector< std::byte > message = GetParam();
 
-	npipe::NamedPipe::write(pipeName, message.data(), message.size(), std::chrono::seconds(1));
+	npipe::NamedPipe::write(ioPipeName, message.data(), message.size(), std::chrono::seconds(1));
 
 	ASSERT_EQ(message, nextMessage());
 }

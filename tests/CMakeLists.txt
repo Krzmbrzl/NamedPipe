@@ -19,6 +19,7 @@ target_compile_options(gmock PRIVATE ${DISABLE_WARNINGS_FLAG})
 
 add_executable(npipe_tests
 	IO.cpp
+	Meta.cpp
 )
 
 target_link_libraries(npipe_tests PRIVATE gtest_main gmock NamedPipe::NamedPipe)
