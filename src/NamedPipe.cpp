@@ -229,7 +229,8 @@ void NamedPipe::destroy() {
 #ifdef PIPE_PLATFORM_WINDOWS
 using handle_t = FileHandleWrapper< HANDLE, decltype(&CloseHandle), INVALID_HANDLE_VALUE, true >;
 
-void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milliseconds &timeout) {
+void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milliseconds &timeout,
+				   const std::atomic_bool &interrupt) {
 	constexpr std::chrono::milliseconds pendingWaitInterval(10);
 
 	DWORD transferedBytes;
@@ -241,6 +242,10 @@ void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milli
 			timeout -= pendingWaitInterval;
 		} else {
 			throw TimeoutException();
+		}
+
+		if (interrupt) {
+			throw InterruptException();
 		}
 
 		std::this_thread::sleep_for(pendingWaitInterval);
@@ -331,7 +336,8 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 	if (!WriteFile(handle, message, static_cast< DWORD >(messageSize), NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
 			if (waitUntilWritten) {
-				waitOnAsyncIO(handle, &overlapped, timeout);
+				std::atomic_bool interrupt = false;
+				waitOnAsyncIO(handle, &overlapped, timeout, interrupt);
 			}
 		} else {
 			throw PipeException< DWORD >(GetLastError(), "Write");
@@ -376,7 +382,7 @@ bool NamedPipe::exists(const std::filesystem::path &pipePath) {
 }
 
 void disconnectAndReconnect(HANDLE pipeHandle, LPOVERLAPPED overlappedPtr, bool disconnectFirst,
-							std::chrono::milliseconds &timeout) {
+							std::chrono::milliseconds &timeout, const std::atomic_bool &interrupt) {
 	if (disconnectFirst) {
 		if (!DisconnectNamedPipe(pipeHandle)) {
 			throw PipeException< DWORD >(GetLastError(), "Disconnect");
@@ -386,11 +392,10 @@ void disconnectAndReconnect(HANDLE pipeHandle, LPOVERLAPPED overlappedPtr, bool 
 	if (!ConnectNamedPipe(pipeHandle, overlappedPtr)) {
 		switch (GetLastError()) {
 			case ERROR_IO_PENDING:
-				// Wait for async IO operation to complete
-				waitOnAsyncIO(pipeHandle, overlappedPtr, timeout);
+				// There is no client connected yet
+				waitOnAsyncIO(pipeHandle, overlappedPtr, timeout, interrupt);
 
 				return;
-
 			case ERROR_NO_DATA:
 			case ERROR_PIPE_CONNECTED:
 				// These error codes mean that there is a client connected already.
@@ -414,7 +419,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 	overlapped.hEvent = eventHandle;
 
 	// Connect to pipe
-	disconnectAndReconnect(m_handle, &overlapped, false, timeout);
+	disconnectAndReconnect(m_handle, &overlapped, false, timeout, m_break);
 
 	// Reset overlapped structure
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
@@ -457,7 +462,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 					memset(&overlapped, 0, sizeof(OVERLAPPED));
 					overlapped.hEvent = eventHandle;
 
-					disconnectAndReconnect(m_handle, &overlapped, true, timeout);
+					disconnectAndReconnect(m_handle, &overlapped, true, timeout, m_break);
 
 					// Reset overlapped structure
 					memset(&overlapped, 0, sizeof(OVERLAPPED));
