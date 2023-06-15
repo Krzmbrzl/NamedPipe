@@ -229,7 +229,7 @@ using handle_t = FileHandleWrapper< HANDLE, decltype(&CloseHandle), INVALID_HAND
 
 void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milliseconds &timeout,
 				   const std::atomic_bool &interrupt) {
-	constexpr std::chrono::milliseconds pendingWaitInterval(10);
+	constexpr std::chrono::milliseconds pendingWaitInterval(1);
 
 	DWORD transferedBytes;
 	BOOL result;
