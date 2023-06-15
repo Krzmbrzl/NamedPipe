@@ -47,7 +47,7 @@ public:
 	 * order of magnitude of the timeout instead of the exact timeout-interval.
 	 */
 	static void write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
-					  std::chrono::milliseconds timeout = std::chrono::milliseconds(10), bool waitUntilWritten = false);
+					  std::chrono::milliseconds timeout = std::chrono::milliseconds(10));
 
 	/**
 	 * @returns Whether a named pipe at the given path currently exists

@@ -124,7 +124,7 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 }
 
 void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
-					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
+					  std::chrono::milliseconds timeout) {
 	assert(message);
 
 	// Wait until the target pipe is found or until the provided timeout has elapsed
@@ -146,8 +146,6 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 	if (::write(handle, message, messageSize) < 0) {
 		throw PipeException< int >(errno, "Write");
 	}
-
-	(void) waitUntilWritten;
 }
 
 bool NamedPipe::exists(const std::filesystem::path &pipePath) {
@@ -284,7 +282,7 @@ NamedPipe NamedPipe::create(std::filesystem::path pipePath) {
 }
 
 void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, std::size_t messageSize,
-					  std::chrono::milliseconds timeout, bool waitUntilWritten) {
+					  std::chrono::milliseconds timeout) {
 	assert(message);
 
 	if (pipePath.parent_path().empty()) {
@@ -335,10 +333,8 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
 	if (!WriteFile(handle, message, static_cast< DWORD >(messageSize), NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
-			if (waitUntilWritten) {
-				std::atomic_bool interrupt = false;
-				waitOnAsyncIO(handle, &overlapped, timeout, interrupt);
-			}
+			std::atomic_bool interrupt = false;
+			waitOnAsyncIO(handle, &overlapped, timeout, interrupt);
 		} else {
 			throw PipeException< DWORD >(GetLastError(), "Write");
 		}
