@@ -227,14 +227,12 @@ void NamedPipe::destroy() {
 #ifdef PIPE_PLATFORM_WINDOWS
 using handle_t = FileHandleWrapper< HANDLE, decltype(&CloseHandle), INVALID_HANDLE_VALUE, true >;
 
-template< typename Duration > void sleepFor(Duration duration) {
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now() + duration;
+std::chrono::milliseconds sleepFor(std::chrono::milliseconds duration) {
+	std::chrono::steady_clock::time_point expectedEnd = std::chrono::steady_clock::now() + duration;
 
-	// Unfortunately, this busy "sleeping" is one of the very few possibilities to get accurate sleep times on Windows
-	// See also https://github.com/Krzmbrzl/SleepBenchmark
-	while (std::chrono::steady_clock::now() < end) {
-		std::this_thread::yield();
-	}
+	std::this_thread::sleep_until(expectedEnd);
+
+	return std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - expectedEnd);
 }
 
 void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milliseconds &timeout,
@@ -256,7 +254,7 @@ void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milli
 			throw InterruptException();
 		}
 
-		sleepFor(pendingWaitInterval);
+		timeout -= sleepFor(pendingWaitInterval);
 	}
 
 	if (!result) {
@@ -315,7 +313,7 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 
 				// Decrease wait interval by 1ms as this is the timeout we have waited on the pipe above already
 				static_assert(PIPE_WRITE_WAIT_INTERVAL.count() >= 1);
-				sleepFor(PIPE_WRITE_WAIT_INTERVAL - std::chrono::milliseconds(1));
+				timeout -= sleepFor(PIPE_WRITE_WAIT_INTERVAL - std::chrono::milliseconds(1));
 			} else {
 				throw PipeException< DWORD >(GetLastError(), "WaitNamedPipe");
 			}
@@ -486,7 +484,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 				throw TimeoutException();
 			}
 
-			sleepFor(PIPE_WAIT_INTERVAL);
+			timeout -= sleepFor(PIPE_WAIT_INTERVAL);
 		}
 	}
 
