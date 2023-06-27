@@ -227,10 +227,24 @@ void NamedPipe::destroy() {
 #ifdef PIPE_PLATFORM_WINDOWS
 using handle_t = FileHandleWrapper< HANDLE, decltype(&CloseHandle), INVALID_HANDLE_VALUE, true >;
 
-std::chrono::milliseconds sleepFor(std::chrono::milliseconds duration) {
+bool needsPreciseSleep(std::chrono::milliseconds duration, float maxRelError = 0.1) {
+	return duration * maxRelError <= std::chrono::milliseconds(15);
+}
+
+std::chrono::milliseconds sleepFor(std::chrono::milliseconds duration, bool precise = false) {
 	std::chrono::steady_clock::time_point expectedEnd = std::chrono::steady_clock::now() + duration;
 
-	std::this_thread::sleep_until(expectedEnd);
+	if (precise) {
+		// Unfortunately, sleep_until (or sleeping in general) is not particularly precise on Windows
+		// as it seems to quantize sleeps in 15ms intervals by default.
+		// Therefore, if we want to sleep more or less precisely by the given amount of time (with
+		// errors < 15ms), we'll have to resort to a busy "sleep".
+		while (std::chrono::steady_clock::now() < expectedEnd) {
+			std::this_thread::yield();
+		}
+	} else {
+		std::this_thread::sleep_until(expectedEnd);
+	}
 
 	return std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::steady_clock::now() - expectedEnd);
 }
@@ -238,6 +252,7 @@ std::chrono::milliseconds sleepFor(std::chrono::milliseconds duration) {
 void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milliseconds &timeout,
 				   const std::atomic_bool &interrupt) {
 	constexpr std::chrono::milliseconds pendingWaitInterval(1);
+	const bool sleepPrecisely = needsPreciseSleep(timeout);
 
 	DWORD transferedBytes;
 	BOOL result;
@@ -254,7 +269,7 @@ void waitOnAsyncIO(HANDLE handle, LPOVERLAPPED overlappedPtr, std::chrono::milli
 			throw InterruptException();
 		}
 
-		timeout -= sleepFor(pendingWaitInterval);
+		timeout -= sleepFor(pendingWaitInterval, sleepPrecisely);
 	}
 
 	if (!result) {
@@ -299,6 +314,8 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 
 	assert(pipePath.parent_path() == "\\\\.\\pipe");
 
+	const bool sleepPrecisely = needsPreciseSleep(timeout);
+
 	// Wait until the target named pipe is available
 	while (true) {
 		// We can't use a timeout of 0 as this would be the special value NMPWAIT_USE_DEFAULT_WAIT causing
@@ -313,7 +330,7 @@ void NamedPipe::write(std::filesystem::path pipePath, const std::byte *message, 
 
 				// Decrease wait interval by 1ms as this is the timeout we have waited on the pipe above already
 				static_assert(PIPE_WRITE_WAIT_INTERVAL.count() >= 1);
-				timeout -= sleepFor(PIPE_WRITE_WAIT_INTERVAL - std::chrono::milliseconds(1));
+				timeout -= sleepFor(PIPE_WRITE_WAIT_INTERVAL - std::chrono::milliseconds(1), sleepPrecisely);
 			} else {
 				throw PipeException< DWORD >(GetLastError(), "WaitNamedPipe");
 			}
@@ -416,6 +433,8 @@ void disconnectAndReconnect(HANDLE pipeHandle, LPOVERLAPPED overlappedPtr, bool 
 std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds timeout) const {
 	std::vector< std::byte > message;
 
+	const bool sleepPrecisely = needsPreciseSleep(timeout);
+
 	OVERLAPPED overlapped;
 	memset(&overlapped, 0, sizeof(OVERLAPPED));
 
@@ -484,7 +503,7 @@ std::vector< std::byte > NamedPipe::read_blocking(std::chrono::milliseconds time
 				throw TimeoutException();
 			}
 
-			timeout -= sleepFor(PIPE_WAIT_INTERVAL);
+			timeout -= sleepFor(PIPE_WAIT_INTERVAL, sleepPrecisely);
 		}
 	}
 
